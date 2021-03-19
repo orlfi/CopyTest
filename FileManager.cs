@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace TestCopy
@@ -16,11 +18,12 @@ namespace TestCopy
         {
             //ProgressEvent += OnProgress;
         }
-        public void OnProgress(ProgressInfo progress, bool done)
+        public void OnProgress(ProgressInfo progress, bool done, ConsoleColor color)
         {
             int x = Console.CursorLeft;
             int y = Console.CursorTop;
             Console.SetCursorPosition(x, 10);
+            Console.ForegroundColor = color;
             Console.Write($"Progress: { progress.Progress}% ");
             if (done)
             {
@@ -33,9 +36,10 @@ namespace TestCopy
             Console.ResetColor();
         }
 
-        public void Test(string source, string destSync, string destAsync)
+        public async void Test(string source, string destSync, string destAsync)
         {
             FileInfo fi = new FileInfo(source);
+            Console.WriteLine($"Current thread: {Thread.CurrentThread.ManagedThreadId}");
             Console.WriteLine($"Копирование файла {fi.Name} {fi.Length/1024}kB");
             //ProgressEvent += OnProgress;
             if (File.Exists(destSync))
@@ -46,22 +50,26 @@ namespace TestCopy
 
             Console.CursorVisible = false;
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+
             Console.WriteLine($"Start sync");
             sw.Start();
-            Copy(source, destSync);
+            var t1 = Copy(source, destSync);
+            //await Copy(source, destSync);
             sw.Stop();
             Console.WriteLine($"Elapsed sync: {sw.ElapsedMilliseconds}");
+
             Console.WriteLine($"Start async");
             sw.Restart();
-            CopyAsync(source, destAsync);
+            //await CopyAsync(source, destAsync);
+            var t2 =  CopyAsync(source, destAsync);
             sw.Stop();
             Console.WriteLine($"Elapsed async: {sw.ElapsedMilliseconds}");
-
+            Task.WaitAll(t1,t2);
             Console.CursorVisible = true;
 
         }
 
-        public async void CopyAsync(string source, string destination)
+        public async Task  CopyAsync(string source, string destination)
         {
             FileStream writeStream = null;
             FileStream readStream = null;
@@ -86,7 +94,7 @@ namespace TestCopy
                     ProgressInfo pi = new ProgressInfo(total, fileSize, fileInfo.Name);
                     if (Progress && ((int)pi.Progress)/10 > invoked)
                     {
-                        OnProgress(pi, false);
+                        OnProgress(pi, false, ConsoleColor.Red);
                         //ProgressEvent?.Invoke(pi, false);
                         invoked++;
                     }
@@ -98,10 +106,16 @@ namespace TestCopy
                 writeStream?.Close();
                 readStream?.Close();
             }
+            Console.WriteLine($"Finished CopyAsync: {Thread.CurrentThread.ManagedThreadId}");
         }
 
 
-        public void Copy(string source, string destination)
+        public async Task Copy(string source, string destination)
+        {
+            await Task.Run(()=> {Work(source, destination);});
+        }
+
+        public void Work(string source, string destination)
         {
             FileStream writeStream = null;
             FileStream readStream = null;
@@ -125,7 +139,7 @@ namespace TestCopy
                     ProgressInfo pi = new ProgressInfo(total, fileSize, fileInfo.Name);
                     if (Progress && ((int)pi.Progress)/10 > invoked)
                     {
-                        OnProgress(pi, false);
+                        OnProgress(pi, false, ConsoleColor.Blue);
                         //ProgressEvent?.Invoke(pi, false);
                         invoked++;
                     }                } while (bytesRead > 0);
@@ -136,6 +150,8 @@ namespace TestCopy
                 writeStream?.Close();
                 readStream?.Close();
             }
+            Console.WriteLine($"Finished Copy: {Thread.CurrentThread.ManagedThreadId}");
         }
+
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 
 namespace TestCopy
 {
@@ -14,6 +15,7 @@ namespace TestCopy
             
             FileManager fm = new FileManager();
             fm.Progress = true;
+
             fm.Test(source, dest1, dest2);
             
             Console.WriteLine("done!");
